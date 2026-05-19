@@ -2,57 +2,94 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Objednávka školního bufetu</title>
 
 <style>
 body {
-  font-family: Arial, sans-serif;
-  background: #f4f7fb;
+    font-family: Arial, sans-serif;
+    background: #f4f7fb;
+    margin: 0;
+    padding: 0;
 }
+
 h1 {
-  text-align: center;
-  background: #2a72d4;
-  color: white;
-  padding: 20px;
+    text-align: center;
+    background: #2a72d4;
+    color: white;
+    padding: 20px 0;
+    margin: 0;
 }
+
 .container {
-  width: 90%;
-  max-width: 500px;
-  margin: 30px auto;
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    margin: 30px auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 25px;
 }
+
 .item {
-  display: flex;
-  justify-content: space-between;
-  margin: 12px 0;
-  font-size: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 12px 0;
+    font-size: 18px;
 }
+
 input[type="number"] {
-  width: 70px;
-  text-align: center;
+    width: 70px;
+    text-align: center;
+    padding: 5px;
 }
-#celkem, #pocet {
-  text-align: center;
-  font-size: 22px;
-  margin-top: 15px;
-  font-weight: bold;
-  color: #2a72d4;
+
+input[type="text"],
+input[type="tel"] {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
 }
+
+.form-group {
+    margin-top: 20px;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+}
+
+#celkem,
+#pocet {
+    text-align: center;
+    font-size: 22px;
+    margin-top: 15px;
+    font-weight: bold;
+    color: #2a72d4;
+}
+
 button {
-  width: 100%;
-  padding: 15px;
-  margin-top: 30px;
-  font-size: 24px;
-  background: #ff6b35;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
+    width: 100%;
+    padding: 15px;
+    margin-top: 30px;
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+    background: #ff6b35;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
 }
+
 button:hover {
-  background: #e85a28;
+    background: #ff4c00;
 }
 </style>
 </head>
@@ -62,122 +99,206 @@ button:hover {
 <h1>SŠ Kostka – OBJEDNÁVKY BUFET</h1>
 
 <div class="container">
-  <div id="items"></div>
 
-  <div id="celkem">Celková cena: 0 Kč</div>
-  <div id="pocet">Počet kusů: 0</div>
+    <!-- NABÍDKA PRODUKTŮ -->
+    <div class="item">
+        <span>SENDVIČ (45 Kč)</span>
+        <input type="number" id="sandwich" min="0" value="0">
+    </div>
 
-  <button onclick="odeslatObjednavku()">ODESLAT OBJEDNÁVKU</button>
+    <div class="item">
+        <span>PÁREK V ROHLÍKU (35 Kč)</span>
+        <input type="number" id="parek" min="0" value="0">
+    </div>
+
+    <div class="item">
+        <span>JABLKO (15 Kč)</span>
+        <input type="number" id="apple" min="0" value="0">
+    </div>
+
+    <!-- CELKOVÁ CENA -->
+    <div id="celkem">Celková cena: 0 Kč</div>
+
+    <!-- CELKOVÝ POČET KUSŮ -->
+    <div id="pocet">Celkový počet kusů: 0</div>
+
+    <!-- =====================================================
+         🟩 NOVÁ VÝPLŇOVÁ POLE
+         ===================================================== -->
+
+    <div class="form-group">
+        <label for="jmeno">VAŠE JMÉNO</label>
+        <input 
+            type="text" 
+            id="jmeno" 
+            placeholder="Příjmení Jméno"
+            required>
+    </div>
+
+    <div class="form-group">
+        <label for="telefon">TELEFON</label>
+        <input 
+            type="tel" 
+            id="telefon" 
+            placeholder="+420 000 000 000"
+            required>
+    </div>
+
+    <!-- TLAČÍTKO ODESLÁNÍ -->
+    <button onclick="odeslatObjednavku()">
+        ODESLAT OBJEDNÁVKU
+    </button>
+
 </div>
 
 <script>
 
-let items = [];
+/* =====================================================
+🟦 CENÍK PRODUKTŮ
+===================================================== */
 
-// ✅ načítání CSV
-async function loadCSV() {
-  try {
-    const response = await fetch("data_bufet.csv?t=" + Date.now());
-    if (!response.ok) {
-      throw new Error("Soubor nebyl nalezen");
-    }
+const prices = {
+    sandwich: 45,
+    parek: 35,
+    apple: 15
+};
 
-    const text = await response.text();
-    parseCSV(text);
-    renderItems();
+/* =====================================================
+🟨 REAKCE NA ZMĚNU INPUTŮ
+===================================================== */
 
-  } catch (err) {
-    console.error(err);
-    alert("Chyba načítání CSV.");
-  }
+document.querySelectorAll("input[type='number']").forEach(input => {
+    input.addEventListener("input", spocitej);
+});
+
+/* =====================================================
+🟩 FUNKCE PRO VÝPOČET CENY A POČTU KUSŮ
+===================================================== */
+
+function spocitej() {
+
+    let s = Number(document.getElementById("sandwich").value);
+    let p = Number(document.getElementById("parek").value);
+    let a = Number(document.getElementById("apple").value);
+
+    let totalPrice =
+        s * prices.sandwich +
+        p * prices.parek +
+        a * prices.apple;
+
+    let totalCount = s + p + a;
+
+    document.getElementById("celkem").textContent =
+        "Celková cena: " + totalPrice + " Kč";
+
+    document.getElementById("pocet").textContent =
+        "Celkový počet kusů: " + totalCount;
 }
 
-// ✅ parsování CSV (přeskočení hlavičky)
-function parseCSV(text) {
-  items = [];
+/* =====================================================
+🟥 FUNKCE ODESLÁNÍ OBJEDNÁVKY PŘES MAILTO
+===================================================== */
 
-  const lines = text.split("\n");
-
-  // ⬇️ přeskočíme první řádek (hlavičku)
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    if (!line) continue;
-
-    const [nazev, cena] = line.split(";");
-
-    if (nazev && cena) {
-      items.push({
-        nazev: nazev.trim(),
-        cena: parseFloat(cena.replace(",", ".")),
-        mnozstvi: 0
-      });
-    }
-  }
-}
-
-// ✅ vykreslení
-function renderItems() {
-  const container = document.getElementById("items");
-  container.innerHTML = "";
-
-  items.forEach((item, index) => {
-
-    const div = document.createElement("div");
-    div.className = "item";
-
-    div.innerHTML = `
-      <span>${item.nazev} (${item.cena} Kč)</span>
-      <input type="number" min="0" value="0"
-        onchange="updateItem(${index}, this.value)">
-    `;
-
-    container.appendChild(div);
-  });
-}
-
-// ✅ změna množství
-function updateItem(index, value) {
-  items[index].mnozstvi = parseInt(value) || 0;
-  updateSummary();
-}
-
-// ✅ přepočet
-function updateSummary() {
-  let celkem = 0;
-  let pocet = 0;
-
-  items.forEach(item => {
-    celkem += item.cena * item.mnozstvi;
-    pocet += item.mnozstvi;
-  });
-
-  document.getElementById("celkem").innerText =
-    "Celková cena: " + celkem.toFixed(2) + " Kč";
-
-  document.getElementById("pocet").innerText =
-    "Počet kusů: " + pocet;
-}
-
-// ✅ odeslání
 function odeslatObjednavku() {
-  const objednavka = items
-    .filter(item => item.mnozstvi > 0)
-    .map(item => `${item.nazev}: ${item.mnozstvi} ks`);
 
-  if (objednavka.length === 0) {
-    alert("Nevybral jsi žádné položky!");
-    return;
-  }
+    // =====================================================
+    // 🟨 NAČTENÍ HODNOT
+    // =====================================================
 
-  alert("Objednávka:\n\n" + objednavka.join("\n"));
+    let jmeno = document.getElementById("jmeno").value.trim();
+    let telefon = document.getElementById("telefon").value.trim();
+
+    let s = Number(document.getElementById("sandwich").value);
+    let p = Number(document.getElementById("parek").value);
+    let a = Number(document.getElementById("apple").value);
+
+    // =====================================================
+    // 🟧 VALIDACE FORMULÁŘE
+    // =====================================================
+
+    if (jmeno === "" || telefon === "") {
+        alert("Vyplňte prosím jméno a telefon.");
+        return;
+    }
+
+    let totalCount = s + p + a;
+
+    if (totalCount === 0) {
+        alert("Nevybrali jste žádné zboží.");
+        return;
+    }
+
+    // =====================================================
+    // 🟦 VÝPOČET CELKOVÉ CENY
+    // =====================================================
+
+    let totalPrice =
+        s * prices.sandwich +
+        p * prices.parek +
+        a * prices.apple;
+
+    // =====================================================
+    // 🟩 SESTAVENÍ TEXTU OBJEDNÁVKY
+    // =====================================================
+
+    let objednavka = "OBJEDNÁVKA BUFET\n\n";
+
+    objednavka += "Zákazník:\n";
+    objednavka += jmeno + "\n\n";
+
+    objednavka += "Telefon:\n";
+    objednavka += telefon + "\n\n";
+
+    objednavka += "Objednané položky:\n";
+
+    if (s > 0) {
+        objednavka +=
+            "SENDVIČ – " +
+            s +
+            " ks – " +
+            (s * prices.sandwich) +
+            " Kč\n";
+    }
+
+    if (p > 0) {
+        objednavka +=
+            "PÁREK V ROHLÍKU – " +
+            p +
+            " ks – " +
+            (p * prices.parek) +
+            " Kč\n";
+    }
+
+    if (a > 0) {
+        objednavka +=
+            "JABLKO – " +
+            a +
+            " ks – " +
+            (a * prices.apple) +
+            " Kč\n";
+    }
+
+    objednavka += "\n";
+    objednavka += "Celkový počet kusů: " + totalCount + "\n";
+    objednavka += "Celková cena: " + totalPrice + " Kč";
+
+    // =====================================================
+    // 🟪 MAILTO FUNKCE
+    // OTEVŘE E-MAILOVÉHO KLIENTA UŽIVATELE
+    // =====================================================
+
+    let email = "karlikova.julie@kostka-skola.cz";
+    let subject = "Objednávka bufet";
+
+    let mailtoLink =
+        "mailto:" + email +
+        "?subject=" + encodeURIComponent(subject) +
+        "&body=" + encodeURIComponent(objednavka);
+
+    window.location.href = mailtoLink;
 }
-
-// start
-loadCSV();
 
 </script>
 
 </body>
 </html>
-``
